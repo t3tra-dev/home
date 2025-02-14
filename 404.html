@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>404 - Not Found - t3tra.dev</title>
+  </head>
+  <body>
+    <header>
+      <nav class="navbar">
+        <div class="navbar-brand"><a href="/#">t3tra.dev</a></div>
+        <div class="navbar-nav">
+          <ul class="nav-list">
+            <li class="nav-item"><a href="/#">Home</a></li>
+            <li class="nav-item"><a href="/#about">About</a></li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+    <main>
+      
+<div style="text-align: center; position: relative; top: 40vh;">
+  <p style="font-size: 1.6em;">404 | Not Found</p>
+  <p style="margin: 0.8em 10vw;">The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+</div>
+
+    </main>
+    <canvas id="bg"></canvas>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #131313;
+      }
+      header {
+        color: white;
+        z-index: 1;
+        position: relative;
+      }
+      main {
+        color: white;
+        position: relative;
+        margin: 0.4em 1.6em;
+        z-index: 1;
+      }
+      #bg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 0;
+      }
+      .navbar {
+        padding: 0.8em;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .navbar-brand {
+        font-weight: bold;
+      }
+      .navbar-nav {
+        margin-left: auto;
+      }
+      .nav-list {
+        display: flex;
+        list-style: none;
+      }
+      .nav-item {
+        margin-right: 20px;
+      }
+
+      a {
+        padding-bottom: 4px;
+      }
+      a:not([role="button"]) {
+        text-decoration: none;
+        color: white;
+        background: linear-gradient(white 0 0) 0 100% / var(--d, 0) 2px
+          no-repeat;
+        transition: 0.3s;
+      }
+      a:not([role="button"]):hover {
+        --d: 100%;
+      }
+    </style>
+    
+<script>
+  let mouseX = 0;
+  let mouseY = 0;
+  let mouseInside = false;
+
+  const gradientVertexShaderSource = `
+attribute vec2 a_position;
+void main(void) {
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+  const gradientFragmentShaderSource = `
+precision mediump float;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform bool u_mouseInside;
+
+void main(void) {
+    if (!u_mouseInside) {
+        discard;
+    }
+    vec2 coord = gl_FragCoord.xy;
+    float dist = distance(coord, u_mouse);
+    float gradient = smoothstep(200.0, 0.0, dist);
+    vec3 color = vec3(37.0/255.0, 37.0/255.0, 37.0/255.0) * gradient;
+    gl_FragColor = vec4(color, gradient);
+}
+`;
+
+  const compileShader = (gl, shaderSource, shaderType) => {
+    const shader = gl.createShader(shaderType);
+    gl.shaderSource(shader, shaderSource);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error("Shader compile error:", gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  };
+
+  const createProgram = (gl, vsSource, fsSource) => {
+    const vs = compileShader(gl, vsSource, gl.VERTEX_SHADER);
+    const fs = compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
+    if (!vs || !fs) return null;
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error("Program link error:", gl.getProgramInfoLog(program));
+      gl.deleteProgram(program);
+      return null;
+    }
+    return program;
+  };
+
+  const resize = (canvas) => {
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  };
+
+  (() => {
+    const canvas = document.getElementById("bg");
+    const gl = canvas.getContext("webgl");
+    if (!gl) {
+      console.error("WebGLをサポートしていません");
+      return;
+    }
+
+    window.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = canvas.height - (e.clientY - rect.top);
+      mouseInside = true;
+    });
+
+    window.addEventListener("mouseout", (e) => {
+      mouseInside = false;
+    });
+
+    const gradientProgram = createProgram(
+      gl,
+      gradientVertexShaderSource,
+      gradientFragmentShaderSource
+    );
+
+    const gradientPositionLoc = gl.getAttribLocation(
+      gradientProgram,
+      "a_position"
+    );
+    const gradientResolutionLoc = gl.getUniformLocation(
+      gradientProgram,
+      "u_resolution"
+    );
+    const gradientMouseLoc = gl.getUniformLocation(gradientProgram, "u_mouse");
+    const gradientMouseInsideLoc = gl.getUniformLocation(
+      gradientProgram,
+      "u_mouseInside"
+    );
+
+    const quadBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+    const quadVertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+
+    gl.clearColor(13 / 255, 13 / 255, 13 / 255, 1.0);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    const render = () => {
+      resize(canvas);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      if (mouseInside) {
+        gl.useProgram(gradientProgram);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+        gl.enableVertexAttribArray(gradientPositionLoc);
+        gl.vertexAttribPointer(gradientPositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+        gl.uniform2f(
+          gradientResolutionLoc,
+          gl.drawingBufferWidth,
+          gl.drawingBufferHeight
+        );
+        gl.uniform2f(gradientMouseLoc, mouseX, mouseY);
+        gl.uniform1i(gradientMouseInsideLoc, mouseInside);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+
+      requestAnimationFrame(render);
+    };
+
+    requestAnimationFrame(render);
+  })();
+</script>
+
+  </body>
+</html>
